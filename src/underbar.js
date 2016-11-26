@@ -150,12 +150,30 @@
   //   }); // should be 5, regardless of the iterator function passed in
   //          No accumulator is given so the first element is used.
   _.reduce = function(collection, iterator, accumulator) {
-    var prev = accumulator === undefined ? collection.slice(0, 1)[0] : accumulator;
-    var iterateThis = accumulator === undefined ? collection.slice(1) : collection;
-
-    function recurReduce(prev, curr, arr) {
-      if(curr === arr.length - 1) return iterator(prev, arr[curr]);
-      return recurReduce(iterator(prev, arr[curr]), curr + 1, arr);
+    var prev = accumulator;
+    var iterateThis = collection;
+    if(accumulator === undefined) {
+      if(Array.isArray(collection)) {
+        prev = collection.slice(0, 1)[0];
+        iterateThis = collection.slice(1);
+      }
+      else {
+        //Set prev to the value of the first item in the object
+        //Create a new object without the first key/value pair
+        prev = collection[Object.keys(collection)[0]];
+        var newKeys = Object.keys(collection).slice(1);
+        iterateThis = {};
+        _.each(newKeys, function(key) {
+          iteratThis[newKeys[key]] = collection[newKeys[key]];
+        });
+      }
+    }
+    //coll[Object.keys(coll)[curr]] gets the nth item in an object or an array, where n == curr
+    function recurReduce(prev, curr, coll) {
+      if(curr === Object.keys(coll).length - 1) {
+        return iterator(prev, coll[Object.keys(coll)[curr]]);
+      }
+      return recurReduce(iterator(prev, coll[Object.keys(coll)[curr]]), curr + 1, coll);
     }
 
     return recurReduce(prev, 0, iterateThis);
@@ -177,12 +195,22 @@
   // Determine whether all of the elements match a truth test.
   _.every = function(collection, iterator) {
     // TIP: Try re-using reduce() here.
+    if(!iterator) var iterator = _.identity;
+    if(Object.keys(collection).length === 0) return true;
+    return _.reduce(collection, function(prev, curr) {
+      if(iterator(curr) && prev) return true;
+      return false;
+    }, true);
   };
 
   // Determine whether any of the elements pass a truth test. If no iterator is
   // provided, provide a default one
+  //The only way for 'some' to be false is if opposite of the iterator is false for every item
   _.some = function(collection, iterator) {
-    // TIP: There's a very clever way to re-use every() here.
+    if(!iterator) var iterator = _.identity;
+    return !_.every(collection, function(item) {
+    	return !iterator(item);
+    });
   };
 
 
@@ -205,11 +233,23 @@
   //     bla: "even more stuff"
   //   }); // obj1 now contains key1, key2, key3 and bla
   _.extend = function(obj) {
+    for(var i = 1; i < arguments.length; i++) {
+      _.each(arguments[i], function(value, key) {
+        obj[key] = value;
+      });
+    }
+    return obj;
   };
 
   // Like extend, but doesn't ever overwrite a key that already
   // exists in obj
   _.defaults = function(obj) {
+    for(var i = 1; i < arguments.length; i++) {
+      _.each(arguments[i], function(value, key) {
+        if(!(key in obj)) obj[key] = value;
+      });
+    }
+    return obj;
   };
 
 
@@ -253,7 +293,25 @@
   // already computed the result for the given argument and return that value
   // instead if possible.
   _.memoize = function(func) {
+    var remembered = {};
+    var result;
+
+    function stringify(prev, curr) {
+      return String(prev) + String(curr);
+    }
+
+    return function() {
+      var key = Array.prototype.slice.call(arguments).reduce(stringify, '');
+      if(key in remembered) return remembered[key];
+      result = func.apply(this, arguments);
+      remembered[key] = result;
+      return result;
+    };
   };
+
+  //add(1, 2, 3) >> returns 6
+  //add(1, 2) >> returns 3
+  //add(1, 2, 3) >> returns the 6 that was stored
 
   // Delays a function for the given number of milliseconds, and then calls
   // it with the arguments supplied.
@@ -262,6 +320,10 @@
   // parameter. For example _.delay(someFunction, 500, 'a', 'b') will
   // call someFunction('a', 'b') after 500ms
   _.delay = function(func, wait) {
+    var args = Array.prototype.slice.call(arguments).slice(2);
+    setTimeout(function() {
+      func.apply(this, args);
+    }, wait);
   };
 
 
@@ -276,6 +338,19 @@
   // input array. For a tip on how to make a copy of an array, see:
   // http://mdn.io/Array.prototype.slice
   _.shuffle = function(array) {
+    var arrCopy = array.slice();
+    var result = [];
+    randomize(arrCopy);
+
+    function randomize(arr) {
+      if(arr.length < 2) return result.push(arr[0]);
+      var randomKey = Math.floor(Math.random() * arr.length);
+      result.push(arr[randomKey]);
+      arr.splice(randomKey, 1);
+      return randomize(arr);
+    }
+
+    return result;
   };
 
 
